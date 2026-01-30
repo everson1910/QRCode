@@ -80,12 +80,18 @@
       padding:16px;
     }
     .qrbox{
-      width: 280px; max-width: 100%;
-      background:#fff;
-      border-radius:16px;
-      padding:14px;
-      border:1px solid rgba(0,0,0,.08);
+        width: auto;              /* agora o JS vai controlar */
+        max-width: 100%;
+        background:#fff;
+        border-radius:16px;
+        padding:14px;
+        border:1px solid rgba(0,0,0,.08);
     }
+
+#qrcode img, #qrcode canvas{
+  display:block;            /* evita espaços e cortes estranhos */
+}
+
     .meta{
       width:100%;
       color:var(--muted);
@@ -329,33 +335,53 @@
     }
 
     function generate(){
-      const size = parseInt($("size").value, 10);
-      const ec = $("ec").value;
+  const requestedSize = parseInt($("size").value, 10);
+  const ec = $("ec").value;
 
-      const built = buildPayload();
-      if (!built.ok){
-        setStatus(built.msg, built.kind || "warn");
-        disableOutputs();
-        clearQR();
-        return;
-      }
+  const built = buildPayload();
+  if (!built.ok){
+    setStatus(built.msg, built.kind || "warn");
+    disableOutputs();
+    clearQR();
+    return;
+  }
 
-      lastPayload = built.payload;
+  // padding interno da caixinha branca (.qrbox)
+  const PAD = 14;
 
-      clearQR();
-      qr = new QRCode(qrContainer, {
-        text: lastPayload,
-        width: size,
-        height: size,
-        correctLevel: ({L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H})[ec] || QRCode.CorrectLevel.M
-      });
+  // Descobre o espaço máximo disponível no painel da direita
+  // (pra não cortar em telas menores)
+  const previewPane = qrBox.parentElement; // .pane.preview
+  const paneWidth = previewPane.getBoundingClientRect().width;
 
-      setStatus("Gerado", "ok");
-      enableOutputs();
+  // tamanho máximo do QR que cabe dentro do painel (descontando padding e um respiro)
+  const maxQRSize = Math.max(140, Math.floor(paneWidth - (PAD * 2) - 40));
 
-      const preview = (lastPayload.length > 80 ? lastPayload.slice(0,80) + "…" : lastPayload);
-      meta.innerHTML = `<div><b>Conteúdo:</b> ${escapeHtml(preview)}</div><div><b>Tipo:</b> ${built.label}</div>`;
-    }
+  // tamanho final do QR (nunca maior que o que cabe)
+  const size = Math.min(requestedSize, maxQRSize);
+
+  lastPayload = built.payload;
+
+  // ajusta a caixa branca para CABER o QR + padding
+  qrBox.style.width = (size + PAD * 2) + "px";
+  qrBox.style.padding = PAD + "px";
+
+  clearQR();
+
+  qr = new QRCode(qrContainer, {
+    text: lastPayload,
+    width: size,
+    height: size,
+    correctLevel: ({L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H})[ec] || QRCode.CorrectLevel.M
+  });
+
+  setStatus(size < requestedSize ? "Gerado (ajustado ao espaço)" : "Gerado", size < requestedSize ? "warn" : "ok");
+  enableOutputs();
+
+  const preview = (lastPayload.length > 80 ? lastPayload.slice(0,80) + "…" : lastPayload);
+  meta.innerHTML = `<div><b>Conteúdo:</b> ${escapeHtml(preview)}</div><div><b>Tipo:</b> ${built.label}</div>`;
+}
+
 
     function escapeHtml(s){
       return String(s)
