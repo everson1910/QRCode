@@ -80,17 +80,17 @@
       padding:16px;
     }
     .qrbox{
-        width: auto;              /* agora o JS vai controlar */
-        max-width: 100%;
-        background:#fff;
-        border-radius:16px;
-        padding:14px;
-        border:1px solid rgba(0,0,0,.08);
+      width: auto;              /* agora o JS vai controlar */
+      max-width: 100%;
+      background:#fff;
+      border-radius:16px;
+      padding:14px;
+      border:1px solid rgba(0,0,0,.08);
     }
 
-#qrcode img, #qrcode canvas{
-  display:block;            /* evita espaços e cortes estranhos */
-}
+    #qrcode img, #qrcode canvas{
+      display:block;            /* evita espaços e cortes estranhos */
+    }
 
     .meta{
       width:100%;
@@ -335,53 +335,52 @@
     }
 
     function generate(){
-  const requestedSize = parseInt($("size").value, 10);
-  const ec = $("ec").value;
+      const requestedSize = parseInt($("size").value, 10);
+      const ec = $("ec").value;
 
-  const built = buildPayload();
-  if (!built.ok){
-    setStatus(built.msg, built.kind || "warn");
-    disableOutputs();
-    clearQR();
-    return;
-  }
+      const built = buildPayload();
+      if (!built.ok){
+        setStatus(built.msg, built.kind || "warn");
+        disableOutputs();
+        clearQR();
+        return;
+      }
 
-  // padding interno da caixinha branca (.qrbox)
-  const PAD = 14;
+      // padding interno da caixinha branca (.qrbox)
+      const PAD = 14;
 
-  // Descobre o espaço máximo disponível no painel da direita
-  // (pra não cortar em telas menores)
-  const previewPane = qrBox.parentElement; // .pane.preview
-  const paneWidth = previewPane.getBoundingClientRect().width;
+      // Descobre o espaço máximo disponível no painel da direita
+      // (pra não cortar em telas menores)
+      const previewPane = qrBox.parentElement; // .pane.preview
+      const paneWidth = previewPane.getBoundingClientRect().width;
 
-  // tamanho máximo do QR que cabe dentro do painel (descontando padding e um respiro)
-  const maxQRSize = Math.max(140, Math.floor(paneWidth - (PAD * 2) - 40));
+      // tamanho máximo do QR que cabe dentro do painel (descontando padding e um respiro)
+      const maxQRSize = Math.max(140, Math.floor(paneWidth - (PAD * 2) - 40));
 
-  // tamanho final do QR (nunca maior que o que cabe)
-  const size = Math.min(requestedSize, maxQRSize);
+      // tamanho final do QR (nunca maior que o que cabe)
+      const size = Math.min(requestedSize, maxQRSize);
 
-  lastPayload = built.payload;
+      lastPayload = built.payload;
 
-  // ajusta a caixa branca para CABER o QR + padding
-  qrBox.style.width = (size + PAD * 2) + "px";
-  qrBox.style.padding = PAD + "px";
+      // ajusta a caixa branca para CABER o QR + padding
+      qrBox.style.width = (size + PAD * 2) + "px";
+      qrBox.style.padding = PAD + "px";
 
-  clearQR();
+      clearQR();
 
-  qr = new QRCode(qrContainer, {
-    text: lastPayload,
-    width: size,
-    height: size,
-    correctLevel: ({L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H})[ec] || QRCode.CorrectLevel.M
-  });
+      qr = new QRCode(qrContainer, {
+        text: lastPayload,
+        width: size,
+        height: size,
+        correctLevel: ({L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H})[ec] || QRCode.CorrectLevel.M
+      });
 
-  setStatus(size < requestedSize ? "Gerado (ajustado ao espaço)" : "Gerado", size < requestedSize ? "warn" : "ok");
-  enableOutputs();
+      setStatus(size < requestedSize ? "Gerado (ajustado ao espaço)" : "Gerado", size < requestedSize ? "warn" : "ok");
+      enableOutputs();
 
-  const preview = (lastPayload.length > 80 ? lastPayload.slice(0,80) + "…" : lastPayload);
-  meta.innerHTML = `<div><b>Conteúdo:</b> ${escapeHtml(preview)}</div><div><b>Tipo:</b> ${built.label}</div>`;
-}
-
+      const preview = (lastPayload.length > 80 ? lastPayload.slice(0,80) + "…" : lastPayload);
+      meta.innerHTML = `<div><b>Conteúdo:</b> ${escapeHtml(preview)}</div><div><b>Tipo:</b> ${built.label}</div>`;
+    }
 
     function escapeHtml(s){
       return String(s)
@@ -399,41 +398,61 @@
       return { img, canvas };
     }
 
-    async function downloadPNG(){
+    // ✅ NOVO: exporta um PNG "certinho" com margem branca (quiet zone)
+    async function exportQrPngDataUrl(margin = 24){
       const { img, canvas } = getQRImageEl();
-      let dataUrl = null;
+
+      let qrW, qrH;
+      let source;
 
       if (canvas){
-        dataUrl = canvas.toDataURL("image/png");
+        qrW = canvas.width;
+        qrH = canvas.height;
+        source = canvas;
       } else if (img){
-        dataUrl = img.src;
+        if (!img.complete) await new Promise(res => (img.onload = res));
+        qrW = img.naturalWidth || img.width;
+        qrH = img.naturalHeight || img.height;
+        source = img;
+      } else {
+        throw new Error("QR não encontrado");
       }
 
-      if (!dataUrl){
-        setStatus("Não consegui pegar a imagem do QR.", "warn");
-        return;
-      }
+      const out = document.createElement("canvas");
+      out.width = qrW + margin * 2;
+      out.height = qrH + margin * 2;
 
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = "qrcode.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const ctx = out.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, out.width, out.height);
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(source, margin, margin, qrW, qrH);
+
+      return out.toDataURL("image/png");
+    }
+
+    async function downloadPNG(){
+      try{
+        const dataUrl = await exportQrPngDataUrl(24); // margem branca
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "qrcode.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setStatus("PNG baixado (com margem)", "ok");
+      } catch (e){
+        setStatus("Não consegui exportar o PNG.", "warn");
+      }
     }
 
     async function copyImage(){
-      const { img, canvas } = getQRImageEl();
       try{
-        let blob;
-        if (canvas){
-          blob = await new Promise(res => canvas.toBlob(res, "image/png"));
-        } else if (img){
-          const r = await fetch(img.src);
-          blob = await r.blob();
-        }
+        const dataUrl = await exportQrPngDataUrl(24); // margem branca
+        const blob = await (await fetch(dataUrl)).blob();
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        setStatus("Imagem copiada!", "ok");
+        setStatus("Imagem copiada (com margem)!", "ok");
       } catch(e){
         setStatus("Seu navegador bloqueou copiar imagem. Baixe PNG.", "warn");
       }
