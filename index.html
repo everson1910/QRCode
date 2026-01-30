@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gerador de QR Code (Estático)</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#111b2e; --text:#eaf0ff; --muted:#9fb0d0;
+      --line:rgba(255,255,255,.12); --btn:#2a5cff; --btn2:#1a2a4a;
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background:radial-gradient(1200px 600px at 20% 0%, rgba(42,92,255,.35), transparent 60%),
+                 radial-gradient(900px 500px at 90% 20%, rgba(0,196,255,.20), transparent 55%),
+                 var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:grid; place-items:center;
+      padding:22px;
+    }
+    .wrap{width:min(980px, 100%);}
+    .top{
+      display:flex; gap:14px; align-items:flex-end; justify-content:space-between;
+      margin-bottom:14px;
+    }
+    h1{margin:0; font-size:22px; letter-spacing:.2px}
+    .hint{margin:2px 0 0; color:var(--muted); font-size:13px}
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:0 18px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+    }
+    @media (max-width: 860px){
+      .grid{grid-template-columns:1fr}
+    }
+    .pane{padding:16px}
+    .pane + .pane{border-left:1px solid var(--line)}
+    @media (max-width: 860px){
+      .pane + .pane{border-left:none; border-top:1px solid var(--line)}
+    }
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:8px}
+    textarea, input, select{
+      width:100%;
+      background:rgba(0,0,0,.22);
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 12px;
+      outline:none;
+    }
+    textarea{min-height:120px; resize:vertical}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+    @media (max-width: 520px){
+      .row{grid-template-columns:1fr}
+    }
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    button{
+      border:1px solid var(--line);
+      background:var(--btn2);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:650;
+    }
+    button.primary{background:var(--btn); border-color:rgba(255,255,255,.18)}
+    button:disabled{opacity:.55; cursor:not-allowed}
+    .preview{
+      display:grid; gap:12px;
+      place-items:center;
+      padding:16px;
+    }
+    .qrbox{
+      width: 280px; max-width: 100%;
+      background:#fff;
+      border-radius:16px;
+      padding:14px;
+      border:1px solid rgba(0,0,0,.08);
+    }
+    .meta{
+      width:100%;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      border:1px solid var(--line);
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(0,0,0,.18);
+      color:var(--muted);
+      font-size:12px;
+    }
+    .small{font-size:12px; color:var(--muted)}
+    .ok{color:#9bffb6}
+    .warn{color:#ffd58a}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Gerador de QR Code (Estático)</h1>
+        <div class="hint">Esse QR não expira — ele guarda o conteúdo dentro do próprio código.</div>
+      </div>
+      <div class="pill" id="statusPill">Pronto</div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="pane">
+          <label for="mode">Tipo</label>
+          <select id="mode">
+            <option value="url">Link (URL)</option>
+            <option value="text">Texto</option>
+            <option value="wifi">Wi-Fi</option>
+            <option value="pix">PIX (copia e cola)</option>
+          </select>
+
+          <div id="block-url" style="margin-top:12px;">
+            <label for="url">Cole o link (https://...)</label>
+            <input id="url" placeholder="https://seusite.com/pagina" />
+            <div class="small" style="margin-top:8px;">
+              Dica: se você trocar o link depois, o QR antigo não muda.
+            </div>
+          </div>
+
+          <div id="block-text" style="margin-top:12px; display:none;">
+            <label for="text">Texto</label>
+            <textarea id="text" placeholder="Digite qualquer texto..."></textarea>
+          </div>
+
+          <div id="block-wifi" style="margin-top:12px; display:none;">
+            <div class="row">
+              <div>
+                <label for="ssid">Nome da rede (SSID)</label>
+                <input id="ssid" placeholder="MinhaWifi" />
+              </div>
+              <div>
+                <label for="auth">Segurança</label>
+                <select id="auth">
+                  <option value="WPA">WPA/WPA2</option>
+                  <option value="WEP">WEP</option>
+                  <option value="nopass">Sem senha</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="pass">Senha</label>
+                <input id="pass" placeholder="senha123" />
+              </div>
+              <div>
+                <label for="hidden">Rede oculta?</label>
+                <select id="hidden">
+                  <option value="false">Não</option>
+                  <option value="true">Sim</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="block-pix" style="margin-top:12px; display:none;">
+            <label for="pix">PIX “copia e cola” (texto EMV)</label>
+            <textarea id="pix" placeholder="00020126..."></textarea>
+            <div class="small" style="margin-top:8px;">
+              Cole o código “copia e cola” do seu banco. (O QR só vai conter esse texto.)
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="size">Tamanho</label>
+              <select id="size">
+                <option value="220">220px</option>
+                <option value="280" selected>280px</option>
+                <option value="360">360px</option>
+                <option value="480">480px</option>
+              </select>
+            </div>
+            <div>
+              <label for="ec">Correção de erro</label>
+              <select id="ec">
+                <option value="L">L (menor)</option>
+                <option value="M" selected>M</option>
+                <option value="Q">Q</option>
+                <option value="H">H (maior)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="btnGenerate">Gerar QR</button>
+            <button id="btnDownload" disabled>Baixar PNG</button>
+            <button id="btnCopy" disabled>Copiar imagem</button>
+            <button id="btnClear">Limpar</button>
+          </div>
+
+          <div class="small" style="margin-top:10px;">
+            Recomendação: use <b>QR estático</b>. Se algum site “promete estatísticas/editar destino”, é QR dinâmico (pode expirar).
+          </div>
+        </div>
+
+        <div class="pane preview">
+          <div class="qrbox" id="qrbox">
+            <div id="qrcode"></div>
+          </div>
+          <div class="meta" id="meta">
+            <div><b>Conteúdo:</b> —</div>
+            <div><b>Tipo:</b> —</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lib leve via CDN: só para gerar os quadradinhos. O QR gerado é ESTÁTICO. -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const mode = $("mode");
+    const blocks = {
+      url: $("block-url"),
+      text: $("block-text"),
+      wifi: $("block-wifi"),
+      pix: $("block-pix"),
+    };
+
+    const statusPill = $("statusPill");
+    const btnGenerate = $("btnGenerate");
+    const btnDownload = $("btnDownload");
+    const btnCopy = $("btnCopy");
+    const btnClear = $("btnClear");
+
+    const qrContainer = $("qrcode");
+    const qrBox = $("qrbox");
+    const meta = $("meta");
+
+    let qr = null;
+    let lastPayload = "";
+
+    function setStatus(text, kind="ok"){
+      statusPill.textContent = text;
+      statusPill.className = "pill " + (kind === "warn" ? "warn" : "ok");
+    }
+
+    function showMode(m){
+      Object.keys(blocks).forEach(k => blocks[k].style.display = (k === m ? "block" : "none"));
+      setStatus("Pronto", "ok");
+      disableOutputs();
+      clearQR();
+      meta.innerHTML = `<div><b>Conteúdo:</b> —</div><div><b>Tipo:</b> —</div>`;
+    }
+
+    function clearQR(){
+      qrContainer.innerHTML = "";
+      qr = null;
+    }
+
+    function disableOutputs(){
+      btnDownload.disabled = true;
+      btnCopy.disabled = true;
+    }
+
+    function enableOutputs(){
+      btnDownload.disabled = false;
+      btnCopy.disabled = false;
+    }
+
+    function wifiEscape(s){
+      return String(s).replace(/([\\;,:"])/g, "\\$1");
+    }
+
+    function buildPayload(){
+      const m = mode.value;
+
+      if (m === "url"){
+        const u = $("url").value.trim();
+        if (!u) return { ok:false, msg:"Cole um link.", kind:"warn" };
+        // validação básica
+        if (!/^https?:\/\//i.test(u)) return { ok:false, msg:"Use um link começando com http:// ou https://", kind:"warn" };
+        return { ok:true, payload:u, label:"Link (URL)" };
+      }
+
+      if (m === "text"){
+        const t = $("text").value.trim();
+        if (!t) return { ok:false, msg:"Digite algum texto.", kind:"warn" };
+        return { ok:true, payload:t, label:"Texto" };
+      }
+
+      if (m === "pix"){
+        const p = $("pix").value.trim();
+        if (!p) return { ok:false, msg:"Cole o PIX copia e cola.", kind:"warn" };
+        return { ok:true, payload:p, label:"PIX (texto)" };
+      }
+
+      if (m === "wifi"){
+        const ssid = $("ssid").value.trim();
+        const auth = $("auth").value;
+        const pass = $("pass").value;
+        const hidden = $("hidden").value;
+
+        if (!ssid) return { ok:false, msg:"Informe o SSID (nome da rede).", kind:"warn" };
+        if (auth !== "nopass" && !pass) return { ok:false, msg:"Informe a senha do Wi-Fi.", kind:"warn" };
+
+        // formato padrão de QR WiFi:
+        // WIFI:T:WPA;S:MySSID;P:MyPass;H:false;;
+        const T = auth;
+        const S = wifiEscape(ssid);
+        const P = wifiEscape(pass);
+        const H = hidden;
+
+        const payload = `WIFI:T:${T};S:${S};P:${P};H:${H};;`;
+        return { ok:true, payload, label:"Wi-Fi" };
+      }
+
+      return { ok:false, msg:"Modo inválido.", kind:"warn" };
+    }
+
+    function generate(){
+      const size = parseInt($("size").value, 10);
+      const ec = $("ec").value;
+
+      const built = buildPayload();
+      if (!built.ok){
+        setStatus(built.msg, built.kind || "warn");
+        disableOutputs();
+        clearQR();
+        return;
+      }
+
+      lastPayload = built.payload;
+
+      clearQR();
+      qr = new QRCode(qrContainer, {
+        text: lastPayload,
+        width: size,
+        height: size,
+        correctLevel: ({L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H})[ec] || QRCode.CorrectLevel.M
+      });
+
+      setStatus("Gerado", "ok");
+      enableOutputs();
+
+      const preview = (lastPayload.length > 80 ? lastPayload.slice(0,80) + "…" : lastPayload);
+      meta.innerHTML = `<div><b>Conteúdo:</b> ${escapeHtml(preview)}</div><div><b>Tipo:</b> ${built.label}</div>`;
+    }
+
+    function escapeHtml(s){
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function getQRImageEl(){
+      // qrcodejs pode renderizar como <img> ou <canvas> dependendo do browser
+      const img = qrContainer.querySelector("img");
+      const canvas = qrContainer.querySelector("canvas");
+      return { img, canvas };
+    }
+
+    async function downloadPNG(){
+      const { img, canvas } = getQRImageEl();
+      let dataUrl = null;
+
+      if (canvas){
+        dataUrl = canvas.toDataURL("image/png");
+      } else if (img){
+        dataUrl = img.src;
+      }
+
+      if (!dataUrl){
+        setStatus("Não consegui pegar a imagem do QR.", "warn");
+        return;
+      }
+
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = "qrcode.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    async function copyImage(){
+      const { img, canvas } = getQRImageEl();
+      try{
+        let blob;
+        if (canvas){
+          blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+        } else if (img){
+          const r = await fetch(img.src);
+          blob = await r.blob();
+        }
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setStatus("Imagem copiada!", "ok");
+      } catch(e){
+        setStatus("Seu navegador bloqueou copiar imagem. Baixe PNG.", "warn");
+      }
+    }
+
+    function clearAll(){
+      $("url").value = "";
+      $("text").value = "";
+      $("ssid").value = "";
+      $("pass").value = "";
+      $("pix").value = "";
+      setStatus("Limpo", "ok");
+      disableOutputs();
+      clearQR();
+      meta.innerHTML = `<div><b>Conteúdo:</b> —</div><div><b>Tipo:</b> —</div>`;
+    }
+
+    mode.addEventListener("change", () => showMode(mode.value));
+    btnGenerate.addEventListener("click", generate);
+    btnDownload.addEventListener("click", downloadPNG);
+    btnCopy.addEventListener("click", copyImage);
+    btnClear.addEventListener("click", clearAll);
+
+    // inicia
+    showMode("url");
+  </script>
+</body>
+</html>
